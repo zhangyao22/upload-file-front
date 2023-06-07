@@ -9,7 +9,7 @@
 </template>
 
 <script>
-import http from './utils/http'
+import { uploadFile } from './utils/ali-oss'
 import sparkMD5 from 'spark-md5'
 
 export const CHUNK_SIZE = 0.5 * 1024 * 1024 // 切割的大小
@@ -112,68 +112,72 @@ export default {
     },
     async uploadFile () {
       // 判断是否图片，看需求
-      const isImg = this.isImage(this.file)
-      if (!isImg) {
-        alert('请选择图片')
-        return
-      }
-      const form = new FormData()
-      form.append('name', 'file')
-      form.append('file', this.file)
-      http.post('/api/upload/v1/uploadSingle', form, {
-        onUploadProgress: (axiosProgressEvent) => {
-          /*
-            {
-              loaded: number;
-              total?: number;
-              progress?: number; // in range [0..1]
-              bytes: number; // how many bytes have been transferred since the last trigger (delta)
-              estimated?: number; // estimated time in seconds
-              rate?: number; // upload speed in bytes
-              upload: true; // upload sign
-            }
-          */
-          this.progress = (axiosProgressEvent.progress * 100).toFixed(2)
-        }
-      })
+      // const isImg = this.isImage(this.file)
+      // if (!isImg) {
+      //   alert('请选择图片')
+      //   return
+      // }
+      // const form = new FormData()
+      // form.append('name', 'file')
+      // form.append('file', this.file)
+      // http.post('/api/upload/v1/uploadSingle', form, {
+      //   onUploadProgress: (axiosProgressEvent) => {
+      //     /*
+      //       {
+      //         loaded: number;
+      //         total?: number;
+      //         progress?: number; // in range [0..1]
+      //         bytes: number; // how many bytes have been transferred since the last trigger (delta)
+      //         estimated?: number; // estimated time in seconds
+      //         rate?: number; // upload speed in bytes
+      //         upload: true; // upload sign
+      //       }
+      //     */
+      //     this.progress = (axiosProgressEvent.progress * 100).toFixed(2)
+      //   }
+      // })
     },
     async uploadChunks () {
       const chunks = this.createFileChunk(this.file)
       const hash = await this.calculateHashWork(chunks)
       this.hash = hash
       // const hash1 = await this.calculateHashIdle()
-      // console.log('=====', hash1)
+      const extension = this.file.name.substring(this.file.name.lastIndexOf('.'))
+      const fileName = this.hash + extension
+      const res = await uploadFile(fileName, this.file)
+      console.log(res)
+      // TODO 请求接口将url发送到后端
 
-      this.chunks = this.chunks.map((chunk, index) => {
-        return {
-          hash,
-          name: hash + '-' + index,
-          index,
-          chunk: chunk.file
-        }
-      })
+      // this.chunks = this.chunks.map((chunk, index) => {
+      //   return {
+      //     hash,
+      //     name: hash + '-' + index,
+      //     index,
+      //     chunk: chunk.file
+      //   }
+      // })
 
-      const requests = this.chunks.map(chunk => {
-        const form = new FormData()
-        // form.append('name', 'file')
-        // form.append('file', this.file)
-        console.log('-=-=-=-=-=', chunk.chunk)
-        form.append('chunk', chunk.chunk)
-        form.append('hash', chunk.hash)
-        form.append('name', chunk.name)
-        return form
-      }).map((form, index) => {
-        http.post('/api/upload/v1/uploadSingle', form, {
-          onUploadProgress: (axiosProgressEvent) => {
-            this.chunks[index].progress = (axiosProgressEvent.progress * 100).toFixed(2)
-          }
-        })
-      })
+      // const requests = this.chunks.map(chunk => {
+      //   const form = new FormData()
+      //   // form.append('name', 'file')
+      //   // form.append('file', this.file)
+      //   console.log('-=-=-=-=-=', chunk.chunk)
+      //   form.append('chunk', chunk.chunk)
+      //   form.append('hash', chunk.hash)
+      //   form.append('name', chunk.name)
+      //   return form
+      // }).map((form, index) => {
+      //   http.post('/api/upload/v1/uploadSingle', form, {
+      //     onUploadProgress: (axiosProgressEvent) => {
+      //       this.chunks[index].progress = (axiosProgressEvent.progress * 100).toFixed(2)
+      //     }
+      //   })
+      // })
 
-      // TODO 并发量控制
-      await Promise.all(requests).then(res => {
-        console.log('-=-=-=-=-=-==-', res)
-      })
+      // // TODO 并发量控制
+      // await Promise.all(requests).then(res => {
+      //   console.log('-=-=-=-=-=-==-', res)
+      // })
     },
     chooseFile (e) {
       this.file = e.target.files[0]
